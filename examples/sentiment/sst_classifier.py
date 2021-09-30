@@ -31,7 +31,7 @@ class LstmClassifier(Model):
                  embedder: TextFieldEmbedder,
                  encoder: Seq2VecEncoder,
                  vocab: Vocabulary,
-                 positive_label: str = '4') -> None:
+                 positive_label: str = '4', cuda_device=-1) -> None:
         super().__init__(vocab)
         # We need the embeddings to convert word IDs to their vector representations
         self.embedder = embedder
@@ -52,6 +52,11 @@ class LstmClassifier(Model):
         # Note that PyTorch's CrossEntropyLoss combines softmax and log likelihood loss,
         # which makes it unnecessary to add a separate softmax layer.
         self.loss_function = torch.nn.CrossEntropyLoss()
+        
+        if cuda_device > -1:
+            self.linear = self.linear.to(cuda_device)
+            self.embedder = self.embedder.to(cuda_device)
+            self.encoder = self.encoder.to(cuda_device)
 
     # Instances are fed to forward after batching.
     # Fields are passed through arguments with the same name.
@@ -115,7 +120,7 @@ def main():
     encoder = PytorchSeq2VecWrapper(
         torch.nn.LSTM(EMBEDDING_DIM, HIDDEN_DIM, batch_first=True))
 
-    model = LstmClassifier(word_embeddings, encoder, vocab)
+    model = LstmClassifier(word_embeddings, encoder, vocab, cuda_device = 0)
 
     optimizer = optim.Adam(model.parameters(), lr=1e-4, weight_decay=1e-5)
 
@@ -126,7 +131,7 @@ def main():
         validation_data_loader=dev_data_loader,
         patience=10,
         num_epochs=20,
-        cuda_device=-1)
+        cuda_device=0)
 
     trainer.train()
 
